@@ -40,7 +40,7 @@ async def main(channel_id: str, limit: int = 10, save_to: str = 'file', destinat
         else:
             raise ValueError("Неизвестный тип сохранения! Используйте 'file' или 'db'.")
 
-        saver.save(result, destination)
+        saver.save(channel_id, result, destination)
 
         end_time = datetime.now()  # Засекаем время окончания выполнения запроса
         end_time_str = end_time.strftime('%d-%m-%Y %H:%M:%S')  # Форматируем время окончания
@@ -54,6 +54,9 @@ async def main(channel_id: str, limit: int = 10, save_to: str = 'file', destinat
 
 if __name__ == '__main__':
     channel_id = os.getenv('CHANNEL_ID') or (sys.argv[1] if len(sys.argv) > 1 else None)
+    # limit = os.getenv('LIMIT') or (sys.argv[1] if len(sys.argv) > 1 else None)
+    # save_to = os.getenv('SAVE_TO') or (sys.argv[1] if len(sys.argv) > 1 else None)
+    # destination = os.getenv('DESTINATION') or (sys.argv[1] if len(sys.argv) > 1 else None)
 
     if not channel_id:
         raise ValueError('Не задан ID канала!')
