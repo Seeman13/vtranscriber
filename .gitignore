@@ -80,3 +80,4 @@ venv.bak/
 .idea/
 
 /static/*
+output/channel_description.json
