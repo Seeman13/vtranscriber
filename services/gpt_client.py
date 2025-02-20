@@ -15,7 +15,7 @@ class GPTClient:
         """
         Инициализирует клиента для работы с GPT.
         """
-        self.__client = openai.OpenAI(api_key=GPT_API_KEY)
+        self.__client = openai.AsyncOpenAI(api_key=GPT_API_KEY)
         self.__text_processor = TextProcessor()
 
     async def __get_summary(self, text: str, condition: str = GPT_CONDITION, assistant: str = None, **options) -> str:
@@ -31,8 +31,7 @@ class GPTClient:
         logger.info(f"{chunk_type}: EL {el} - отправка {n} чанка к {GPT_MODEL} с длиной {len(text)} символов.")
 
         try:
-            response = await asyncio.to_thread(
-                self.__client.chat.completions.create,
+            response = await self.__client.chat.completions.create(
                 model=GPT_MODEL,
                 messages=[
                     {"role": "system", "content": condition},
@@ -60,19 +59,24 @@ class GPTClient:
         for el, video in enumerate(videos):
             chunks = list(self.__text_processor.split(video.subtitles))
 
-            annotation = ''
+            # Создаем список задач для обработки чанков
+            tasks = []
             for n, chunk in enumerate(chunks):
-                try:
-                    # Обновляем assistant результатом работы метода __get_summary
-                    annotation = await self.__get_summary(chunk, assistant=annotation, el=el, n=n)
-                except Exception as e:
-                    logger.error(f"Ошибка при обработке чанка {n}: {str(e)}")
-                    raise Exception(f"Ошибка при обработке чанка {n}: {str(e)}")
+                task = self.__get_summary(chunk, assistant='', el=el, n=n)  # assistant передается как пустая строка
+                tasks.append(task)
 
-            annotations.append(annotation)
+            # Запускаем все задачи параллельно
+            results = await asyncio.gather(*tasks, return_exceptions=True)
 
-            # return annotations
-            # self.__text_processor.save_to_file(annotation, mode='a', newline='\n')
+            # Обрабатываем результаты
+            annotation = ''
+            for result in results:
+                if isinstance(result, Exception):
+                    logger.error(f"Ошибка при обработке чанка: {result}")
+                    raise result
+                annotation += result + " "  # Собираем аннотацию из результатов
+
+            annotations.append(annotation.strip())
 
         return annotations
 
@@ -85,12 +89,22 @@ class GPTClient:
         annotations = await self.__generate_video_annotations(videos)
         logger.info(f"Генерация описания для канала из {len(annotations)} аннотаций.")
 
-        description = ''
+        # Создаем задачи для обработки аннотаций
+        tasks = []
         for n, annotation in enumerate(annotations):
-            try:
-                description = await self.__get_summary(annotation, condition=GPT_CONDITION2, assistant=description, el=1, n=n, chunk_type='CHANNEL')
-            except Exception as e:
-                logger.error(f"Ошибка при обработке чанка {n}: {str(e)}")
-                raise Exception(f"Ошибка при обработке чанка {n}: {str(e)}")
+            task = self.__get_summary(annotation, condition=GPT_CONDITION2, assistant='', el=1, n=n,
+                                      chunk_type='CHANNEL')
+            tasks.append(task)
 
-        return description
+        # Запускаем все задачи параллельно
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+
+        # Обрабатываем результаты
+        description = ''
+        for result in results:
+            if isinstance(result, Exception):
+                logger.error(f"Ошибка при обработке аннотации: {result}")
+                raise result
+            description += result + " "  # Собираем описание из результатов
+
+        return description.strip()
