@@ -19,7 +19,6 @@ class TextProcessor:
         """
         Разделяет текст на части, каждая из которых не превышает max_tokens.
         :param text: Исходный текст.
-        :param max_tokens: Максимальное количество токенов для одной части.
         :return: Список частей.
         """
         tokens = self.__encode(text)
